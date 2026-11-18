@@ -12,8 +12,8 @@ a{color:var(--accent);text-underline-offset:3px}a:focus-visible{outline:3px soli
 main,nav,footer{width:min(100% - 40px,1000px);margin:auto}
 nav{display:flex;justify-content:space-between;align-items:center;padding:22px 0;border-bottom:1px solid var(--line);gap:20px}
 nav a:first-child{color:var(--ink);font-weight:750;text-decoration:none}
-header{padding:clamp(35px,7vw,80px) 0 42px}
-h1{margin:0 0 12px;font-size:clamp(37px,6vw,64px);line-height:1.15;letter-spacing:-.025em}
+header{padding:clamp(24px,5vw,50px) 0 24px}
+h1{margin:0;font-size:clamp(37px,6vw,64px);line-height:1.15;letter-spacing:-.025em}
 h2{font-size:clamp(23px,4vw,32px);line-height:1.35;margin:0 0 12px}
 h3{font-size:20px;margin:0 0 6px}p{margin:0 0 16px}
 .intro{max-width:650px;color:var(--muted);font-size:20px}
@@ -36,13 +36,19 @@ footer{padding:20px 0 30px;margin-top:34px;border-top:1px solid var(--line);colo
 <main>
   <header>
     <h1>药房机器人工作坊</h1>
+  </header>
+  <section aria-labelledby="workflow">
+    <h2 id="workflow">完整版操作流程图</h2>
+    <figure><a href="./workflow.png"><img src="./workflow.png" width="2400" height="2303" alt="工作坊操作图：URDF Studio 调整布局，包内网页转换工程，BotLab 运行，Blender 独立建模。"></a></figure>
+  </section>
+  <section aria-label="资产下载">
     <p class="intro">下载可编辑的药房场景，调整家具布局、修改药盒外形，或从空房间开始设计。</p>
     <div class="actions">
       <a class="button" href="./downloads/pharmacy-blender-workshop.zip" download>下载 Blender 建模包</a>
       <a href="#complete">完整机器人仿真包</a>
     </div>
     <p class="note">公开下载。内含完整药房布置和空房间两个 .blend 文件。</p>
-  </header>
+  </section>
   <section class="model" aria-labelledby="blender-model">
     <h2 id="blender-model">打开 Blender 从这里开始</h2>
     <p>解压下载的 ZIP，在 <a href="https://www.blender.org/download/">Blender</a> 打开 <strong>pharmacy-room.blend</strong> 编辑现有药房，或打开 <strong>pharmacy-empty.blend</strong> 自己设计。</p>
@@ -60,10 +66,6 @@ footer{padding:20px 0 30px;margin-top:34px;border-top:1px solid var(--line);colo
       <li><h3>2. 转换布局</h3><p>打开资产包里的「布局转BotLab.html」，选择保存的布局，下载 BotLab 工程。</p></li>
       <li><h3>3. 运行抓取</h3><p>在 <a href="https://botlab.enkeebot.com/">BotLab</a> 中导入 .botlab.zip，点击 Run。</p></li>
     </ol>
-  </section>
-  <section aria-labelledby="workflow">
-    <h2 id="workflow">完整版操作流程图</h2>
-    <figure><a href="./workflow.png"><img src="./workflow.png" width="2400" height="2303" alt="工作坊操作图：URDF Studio 调整布局，包内网页转换工程，BotLab 运行，Blender 独立建模。"></a></figure>
   </section>
 </main>
 <footer>药房机器人工作坊 · 2026-11-18</footer>
