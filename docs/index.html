@@ -16,14 +16,12 @@ header{padding:clamp(24px,5vw,50px) 0 24px}
 h1{margin:0;font-size:clamp(37px,6vw,64px);line-height:1.15;letter-spacing:-.025em}
 h2{font-size:clamp(23px,4vw,32px);line-height:1.35;margin:0 0 12px}
 h3{font-size:20px;margin:0 0 6px}p{margin:0 0 16px}
-.intro{max-width:650px;color:var(--muted);font-size:20px}
 .actions{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:25px}
 .button{padding:11px 17px;border-radius:9px;background:var(--accent);color:#fff;text-decoration:none;font-weight:700}
 section{margin:0 0 34px}
 .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:0;list-style:none;margin:0}
 .steps li,.model{padding:20px;border:1px solid var(--line);border-radius:12px;background:var(--wash)}
 .steps p,.model p{margin:0;color:var(--muted)}
-.note{margin-top:16px;color:var(--muted);font-size:15px}
 .model{background:#f8f5ee;border-color:#e8deca}
 figure{margin:0;max-width:800px}
 img{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:12px}
@@ -43,7 +41,6 @@ footer{padding:20px 0 30px;margin-top:34px;border-top:1px solid var(--line);colo
   </section>
   <section aria-label="资产下载">
     <h2>下载并导入</h2>
-    <p class="intro">这些文件可直接下载，无需 GitHub 账号。按你要用的软件选择文件。</p>
     <ol class="steps">
       <li><h3>URDF Studio 场景</h3><p>在 Scene 里选 File → Import file/archive，导入 .botscene 调整家具。</p><a href="https://raw.githubusercontent.com/xanthiawang/pharmacy-robotics-workshop/57692cdaca232402f7645c9124c9ae591c893d98/01_%E7%BD%91%E9%A1%B5%E6%93%8D%E4%BD%9C/01_%E8%8D%AF%E6%88%BF%E5%B8%83%E5%B1%80.botscene">下载 .botscene</a> · <a href="https://urdf.enkeebot.com/">打开 Studio</a></li>
       <li><h3>BotLab 抓取演示</h3><p>选 File → Open project file / ZIP，导入 .botlab.zip 后点击 Run。</p><a href="https://raw.githubusercontent.com/xanthiawang/pharmacy-robotics-workshop/57692cdaca232402f7645c9124c9ae591c893d98/01_%E7%BD%91%E9%A1%B5%E6%93%8D%E4%BD%9C/02_%E6%8A%93%E8%8D%AF%E7%9B%92%E5%85%A5%E7%AE%B1.botlab.zip">下载抓取工程</a> · <a href="https://botlab.enkeebot.com/">打开 BotLab</a></li>
@@ -54,7 +51,6 @@ footer{padding:20px 0 30px;margin-top:34px;border-top:1px solid var(--line);colo
       <a href="https://github.com/xanthiawang/pharmacy-robotics-workshop/blob/main/docs/%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E.md">查看完整操作说明</a>
       <a href="./downloads/pharmacy-blender-workshop.zip" download>只下载 Blender 建模包</a>
     </div>
-    <p class="note">完整包包含 Studio 场景、抓取演示、手动控制、布局转换页和两份 Blender 源工程。BotLab 是 BotWorld 的仿真工具。</p>
   </section>
   <section class="model" aria-labelledby="blender-model">
     <h2 id="blender-model">打开 Blender 从这里开始</h2>
