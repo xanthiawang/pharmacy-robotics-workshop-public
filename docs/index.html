@@ -42,12 +42,18 @@ footer{padding:20px 0 30px;margin-top:34px;border-top:1px solid var(--line);colo
     <figure><a href="./workflow.png"><img src="./workflow.png" width="2400" height="2303" alt="工作坊操作图：URDF Studio 调整布局，包内网页转换工程，BotLab 运行，Blender 独立建模。"></a></figure>
   </section>
   <section aria-label="资产下载">
-    <p class="intro">下载可编辑的药房场景，调整家具布局、修改药盒外形，或从空房间开始设计。</p>
+    <h2>下载并导入</h2>
+    <p class="intro">这些文件可直接下载，无需 GitHub 账号。按你要用的软件选择文件。</p>
+    <ol class="steps">
+      <li><h3>URDF Studio 场景</h3><p>在 Scene 里选 File → Import file/archive，导入 .botscene 调整家具。</p><a href="https://raw.githubusercontent.com/xanthiawang/pharmacy-robotics-workshop/57692cdaca232402f7645c9124c9ae591c893d98/01_%E7%BD%91%E9%A1%B5%E6%93%8D%E4%BD%9C/01_%E8%8D%AF%E6%88%BF%E5%B8%83%E5%B1%80.botscene">下载 .botscene</a> · <a href="https://urdf.enkeebot.com/">打开 Studio</a></li>
+      <li><h3>BotLab 抓取演示</h3><p>选 File → Open project file / ZIP，导入 .botlab.zip 后点击 Run。</p><a href="https://raw.githubusercontent.com/xanthiawang/pharmacy-robotics-workshop/57692cdaca232402f7645c9124c9ae591c893d98/01_%E7%BD%91%E9%A1%B5%E6%93%8D%E4%BD%9C/02_%E6%8A%93%E8%8D%AF%E7%9B%92%E5%85%A5%E7%AE%B1.botlab.zip">下载抓取工程</a> · <a href="https://botlab.enkeebot.com/">打开 BotLab</a></li>
+      <li><h3>BotLab 手动控制</h3><p>导入后打开 Parameters，调整机械臂和灵巧手的关节。</p><a href="https://raw.githubusercontent.com/xanthiawang/pharmacy-robotics-workshop/57692cdaca232402f7645c9124c9ae591c893d98/01_%E7%BD%91%E9%A1%B5%E6%93%8D%E4%BD%9C/03_%E6%89%8B%E5%8A%A8%E6%8E%A7%E5%88%B6.botlab.zip">下载手动控制工程</a></li>
+    </ol>
     <div class="actions">
-      <a class="button" href="./downloads/pharmacy-blender-workshop.zip" download>下载 Blender 建模包</a>
-      <a href="#complete">完整机器人仿真包</a>
+      <a class="button" href="https://github.com/xanthiawang/pharmacy-robotics-workshop/archive/57692cdaca232402f7645c9124c9ae591c893d98.zip">下载完整工作坊资产包</a>
+      <a href="./downloads/pharmacy-blender-workshop.zip" download>只下载 Blender 建模包</a>
     </div>
-    <p class="note">公开下载。内含完整药房布置和空房间两个 .blend 文件。</p>
+    <p class="note">完整包包含 Studio 场景、抓取演示、手动控制、布局转换页和两份 Blender 源工程。BotLab 是 BotWorld 的仿真工具。</p>
   </section>
   <section class="model" aria-labelledby="blender-model">
     <h2 id="blender-model">打开 Blender 从这里开始</h2>
@@ -58,9 +64,7 @@ footer{padding:20px 0 30px;margin-top:34px;border-top:1px solid var(--line);colo
     <figure><a href="./pharmacy-preview.jpg"><img src="./pharmacy-preview.jpg" width="1160" height="850" alt="Blender 药房建模版，带药柜、工作台、椅子和周转箱。"></a></figure>
   </section>
   <section id="complete" aria-labelledby="browser-flow">
-    <h2 id="browser-flow">完整机器人仿真包</h2>
-    <p>完整版包含 URDF Studio 场景、布局转换工具和 BotLab 抓取演示。厂商模型随完整版提供，下载需要协作仓库权限。</p>
-    <p><a href="https://github.com/xanthiawang/pharmacy-robotics-workshop/releases/tag/v2026.11.18">打开完整版下载（需要 GitHub 权限）</a></p>
+    <h2 id="browser-flow">用自己改过的布局跑仿真</h2>
     <ol class="steps">
       <li><h3>1. 调整家具</h3><p>在 <a href="https://urdf.enkeebot.com/">URDF Studio</a> 打开包内 .botscene，摆放柜子、椅子和中央桌，再保存布局。</p></li>
       <li><h3>2. 转换布局</h3><p>打开资产包里的「布局转BotLab.html」，选择保存的布局，下载 BotLab 工程。</p></li>
