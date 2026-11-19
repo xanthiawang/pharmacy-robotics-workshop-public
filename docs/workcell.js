@@ -5,7 +5,7 @@ const align = (object, p, q) => {
   object.quaternion.set(q[1], q[2], q[3], q[0]);
 };
 
-export function createWorkcell(canvas, status) {
+export function createWorkcell(canvas, status, onRender, onReady) {
   const renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: false });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
@@ -35,9 +35,11 @@ export function createWorkcell(canvas, status) {
   let worker, groups = [], assembly, frames = [], revision = 0, signature, time = 0, palm;
   let failed = false, routeTimer;
   let close = false, following = new T.Vector3();
+  let editingFrames;
   const render = () => {
     if (!canvas.clientWidth) return;
     renderer.render(scene, camera);
+    onRender();
   };
   orbit.addEventListener("change", render);
   function size() {
@@ -66,6 +68,7 @@ export function createWorkcell(canvas, status) {
       body.position.fromArray(pose, k);
       body.quaternion.set(pose[k + 4], pose[k + 5], pose[k + 6], pose[k + 3]);
     });
+    applyEditPose();
     if (close && palm) {
       const delta = palm.position.clone().sub(following);
       orbit.target.add(delta);
@@ -139,6 +142,7 @@ export function createWorkcell(canvas, status) {
     display(msg.initial);
     viewpoint();
     size();
+    onReady();
   }
   function project(files) {
     clearTimeout(routeTimer);
@@ -176,6 +180,52 @@ export function createWorkcell(canvas, status) {
     const id = ++revision;
     routeTimer = setTimeout(() => worker.postMessage({ kind: "route", id, targets, steps }), 90);
   }
+  function applyEditPose() {
+    if (!editingFrames || !palm) return;
+    const target = editingFrames.at(-1);
+    const rotation = palm.quaternion.clone().set(target.q[1], target.q[2], target.q[3], target.q[0]);
+    const change = rotation.multiply(palm.quaternion.clone().invert());
+    const origin = new T.Vector3(...target.p);
+    for (const g of groups) {
+      if (g !== palm && g.name.startsWith("hand/")) {
+        g.position.sub(palm.position).applyQuaternion(change).add(origin);
+        g.quaternion.premultiply(change);
+      }
+    }
+    for (const frame of editingFrames) {
+      const g = groups.find(body => body.name === frame.name);
+      if (g) align(g, frame.p, frame.q);
+    }
+  }
+  function editPose(frames) {
+    editingFrames = frames;
+    if (frames) { applyEditPose(); render(); }
+    else seek(time);
+  }
+  function screen(point) {
+    const p = new T.Vector3(...point).project(camera);
+    return { x: (p.x + 1) * canvas.clientWidth / 2, y: (1 - p.y) * canvas.clientHeight / 2,
+      visible: p.z >= -1 && p.z <= 1 };
+  }
+  function pickPlane(clientX, clientY, anchor, vertical) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (clientX - rect.left) / rect.width * 2 - 1;
+    const y = 1 - (clientY - rect.top) / rect.height * 2;
+    const ray = new T.Vector3(x, y, .5).unproject(camera).sub(camera.position).normalize();
+    const normal = new T.Vector3(0, 0, 1);
+    if (vertical) {
+      camera.getWorldDirection(normal);
+      normal.z = 0;
+      if (normal.length() < .05) return null;
+      normal.normalize();
+    }
+    const slope = normal.dot(ray);
+    if (Math.abs(slope) < .025) return null;
+    const depth = normal.dot(new T.Vector3(...anchor).sub(camera.position)) / slope;
+    if (depth <= 0) return null;
+    return ray.multiplyScalar(depth).add(camera.position).toArray();
+  }
   const canPlay = seconds => Math.round(seconds * 25) < frames.length;
-  return { project, route, seek, viewpoint, size, canPlay, failed: () => failed };
+  const lockCamera = locked => { orbit.enabled = !locked; };
+  return { project, route, seek, viewpoint, size, canPlay, editPose, screen, pickPlane, lockCamera, failed: () => failed };
 }

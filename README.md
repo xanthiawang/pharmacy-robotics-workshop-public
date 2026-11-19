@@ -6,4 +6,4 @@
 
 [下载完整工作坊资产包](https://github.com/xanthiawang/pharmacy-robotics-workshop/archive/57692cdaca232402f7645c9124c9ae591c893d98.zip)。包含机器人仿真、URDF Studio 场景、布局转换器及 Blender 源工程。网页也提供 Studio 和 BotLab 的单文件下载。
 
-[抓取动作编辑器](https://xanthiawang.github.io/pharmacy-robotics-workshop-public/motion.html)默认打开三维工作台。点击「播放预览」观察机械臂搬运药盒，点击「手部特写」观察五指抓放。可调整手腕位置、手指动作和用时，重新播放并导出 BotLab 工程。使用自己的房间布局时，先在资产包里转换布局，再将生成的工程导入编辑器。
+[抓取动作编辑器](https://xanthiawang.github.io/pharmacy-robotics-workshop-public/motion.html)默认打开三维工作台。点击「播放预览」观察机械臂搬运药盒，点击「手部特写」观察五指抓放。点「编辑路线」，拖动手腕上的编号平移或升降。点「＋ 途经点」添加下一步，「在此抓取」和「在此松开」让手腕到位后再动手指。可以回放并导出自己的 BotLab 工程。使用自己的房间布局时，先在资产包里转换布局，再将生成的工程导入编辑器。

@@ -81,3 +81,15 @@ footer { padding: 16px 0 24px; }
 #simulation-status:not(:empty) { position: absolute; bottom: 8px; left: 8px; background: #fffffff2; border-radius: 5px; padding: 3px 8px; font-size: 13px; }
 @media(max-width: 760px) { .timeline { grid-row: auto; } }
 @media(max-width: 480px) { .preview .section-bar { flex-wrap: wrap; gap: 5px; } }
+#route-layer, #route-layer svg, #route-pins { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+#route-line { fill: none; stroke: #056b63; stroke-width: 2; stroke-dasharray: 5 4; }
+.route-pin { position: absolute; transform: translate(-50%, -50%); border: 2px solid white; min-height: 25px; min-width: 25px; padding: 0 4px; border-radius: 50%; background: #28535b; color: white; font: bold 13px/20px system-ui; box-shadow: 0 1px 4px #223b4180; pointer-events: auto; touch-action: none; }
+.route-pin[aria-pressed="true"], .route-pin:hover:not(:disabled) { background: #086d62; color: white; }
+.route-pin[aria-pressed="true"] { cursor: grab; z-index: 1; outline: 2px solid #087769; min-width: 31px; min-height: 31px; }
+.route-pin.dragging { cursor: grabbing; }
+.camera-tools { z-index: 2; }
+#teach[aria-pressed="true"] { background: var(--accent); color: white; }
+#teach-tools { margin: 8px 0 12px; }
+#teach-tools .toolbar { gap: 6px; margin: 6px 0; }
+#teach-tools button { font-size: 14px; }
+#teach-tools [aria-pressed="true"] { color: var(--accent); border-color: var(--accent); font-weight: bold; }

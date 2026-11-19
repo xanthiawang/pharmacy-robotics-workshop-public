@@ -20,6 +20,9 @@ let workcell, projectVersion = 0;
 let animation = 0;
 let projection;
 let jointInputs = [];
+let teaching = false, heightOnly = false, drag = null;
+let waypointPositions = [], pins = [];
+const dragHint = () => heightOnly ? "上下拖动选中的编号，调整手腕高度。" : "拖动选中的编号，在桌面上方平移手腕。点空白处拖动可以转动视角。";
 
 function showNotice(message = "", error = false) {
   const element = $("notice");
@@ -30,6 +33,8 @@ function showNotice(message = "", error = false) {
 
 function useProject(project, filename) {
   stopPlayback();
+  if (teaching) setTeaching(false);
+  $("teach").disabled = true;
   archive = project;
   setupWorkcell(project, ++projectVersion);
   presets = { release: baseline.targets[0].slice(7), grasp: baseline.targets[2].slice(7) };
@@ -64,7 +69,7 @@ async function setupWorkcell(project, version) {
   try {
     const { createWorkcell } = await import("./workcell.js");
     if (version !== projectVersion) return;
-    workcell ??= createWorkcell($("workcell"), $("simulation-status"));
+    workcell ??= createWorkcell($("workcell"), $("simulation-status"), projectPins, () => { $("teach").disabled = false; });
     workcell.project(project.files);
     workcell.route(trajectory, points.map(p => p.ticks));
     workcell.seek(clock);
@@ -78,6 +83,190 @@ async function setupWorkcell(project, version) {
 
 $("overview").onclick = () => workcell?.viewpoint(false);
 $("hand-camera").onclick = () => workcell?.viewpoint(true);
+
+function canInsert() {
+  if (points.length < maxPoints && totalTicks + hz <= 180 * hz) return true;
+  showNotice("路线最多 40 步、180 秒。请先删去一步或缩短用时。", true);
+  return false;
+}
+
+function handStep(index) {
+  if (index < 1 || index >= points.length) return false;
+  return ["grasp", "release"].includes(points[index].mode) &&
+    closeEnough(points[index].arm, points[index - 1].arm);
+}
+
+function editArm(angles) {
+  const frames = [];
+  armPoints(archive.model, angles, frames);
+  workcell.editPose(frames);
+}
+
+function setTeaching(enable) {
+  cancelDrag();
+  teaching = enable;
+  $("route-layer").hidden = $("teach-tools").hidden = !enable;
+  $("teach").setAttribute("aria-pressed", String(enable));
+  $("teach").textContent = enable ? "完成编辑" : "编辑路线";
+  $("view-help").hidden = enable;
+  $("hand-camera").disabled = enable;
+  if (enable) {
+    stopPlayback();
+    if (selected === 0) selected = 1;
+    workcell.viewpoint(false);
+    refresh();
+  } else {
+    workcell?.editPose(null);
+  }
+}
+$("teach").onclick = () => setTeaching(!teaching);
+
+function syncTeach() {
+  if (!teaching) return;
+  if (pins.length !== points.length) {
+    pins = points.map((_, i) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "route-pin";
+      button.textContent = i + 1;
+      button.setAttribute("aria-label", "途经点 " + (i + 1));
+      button.addEventListener("pointerdown", event => beginDrag(event, i));
+      button.addEventListener("click", event => {
+        if (event.detail === 0) { selected = i; refresh(); }
+      });
+      return button;
+    });
+    $("route-pins").replaceChildren(...pins);
+  }
+  pins.forEach((pin, i) => pin.setAttribute("aria-pressed", String(i === selected)));
+  $("teach-step").textContent = "第 " + (selected + 1) + " 步";
+  $("mark-grasp").disabled = $("mark-release").disabled = selected === 0;
+  for (const mode of ["grasp", "release"]) {
+    $("mark-" + mode).setAttribute("aria-pressed", String(handStep(selected) && points[selected].mode === mode));
+  }
+  $("add-waypoint").disabled = points.length >= maxPoints;
+  $("drag-tip").textContent = selected === 0 ? "起始姿势固定。点「＋ 途经点」开始安排下一步。" : dragHint();
+  editArm(points[selected].arm);
+}
+
+function projectPins() {
+  if (!teaching || !workcell || pins.length !== waypointPositions.length) return;
+  const positions = waypointPositions.map((p, i) => drag && i === selected && drag.position ? drag.position : p);
+  const seen = new Set();
+  for (const i of [selected, ...positions.keys()]) {
+    if (seen.has(i)) continue;
+    seen.add(i);
+    const screen = workcell.screen(positions[i]);
+    const pin = pins[i];
+    const key = Math.round(screen.x / 3) + "," + Math.round(screen.y / 3);
+    pin.hidden = !screen.visible || seen.has(key);
+    seen.add(key);
+    pin.style.left = screen.x + "px";
+    pin.style.top = screen.y + "px";
+  }
+  const path = (drag ? positions : trace).map(p => workcell.screen(p));
+  $("route-line").setAttribute("points", path.every(p => p.visible) ? path.map(p => p.x.toFixed(1) + "," + p.y.toFixed(1)).join(" ") : "");
+}
+
+function beginDrag(event, index) {
+  if (!teaching || drag || !event.isPrimary || event.button !== 0) return;
+  event.preventDefault();
+  if (index !== selected) { selected = index; refresh(); }
+  if (index === 0) return;
+  const anchor = waypointPositions[index];
+  const start = workcell.pickPlane(event.clientX, event.clientY, anchor, heightOnly);
+  if (!start) { $("drag-tip").textContent = "请先转动一下视角，再拖动手腕。"; return; }
+  const pin = pins[index];
+  pin.setPointerCapture(event.pointerId);
+  workcell.lockCamera(true);
+  pin.classList.add("dragging");
+  drag = { pin, pointer: event.pointerId, anchor, start, point: points[index], angles: points[index].arm, valid: true };
+  $("download").disabled = true;
+}
+
+function moveDrag(event) {
+  if (!drag || event.pointerId !== drag.pointer) return;
+  const hit = workcell.pickPlane(event.clientX, event.clientY, drag.anchor, heightOnly);
+  const goal = hit?.map((v, i) => drag.anchor[i] + ((i === 2) === heightOnly ? v - drag.start[i] : 0));
+  const angles = goal && moveWrist(archive.model, drag.angles, goal);
+  drag.valid = !!angles;
+  if (!angles) { $("drag-tip").textContent = "手腕够不到这里。往回拖，或松开还原。"; return; }
+  drag.angles = angles;
+  drag.position = wrist(archive.model, angles);
+  $("drag-tip").textContent = "松开保存这个位置。";
+  editArm(angles);
+}
+
+function cancelDrag() {
+  if (!drag) return;
+  const { pin, pointer } = drag;
+  drag = null;
+  workcell.lockCamera(false);
+  if (pin.hasPointerCapture(pointer)) pin.releasePointerCapture(pointer);
+  pin.classList.remove("dragging");
+  $("download").disabled = false;
+  if (teaching) {
+    $("drag-tip").textContent = dragHint();
+    editArm(points[selected].arm);
+  }
+}
+
+function finishDrag(event) {
+  if (!drag || drag.pointer !== event.pointerId) return;
+  moveDrag(event);
+  const { angles, valid, point } = drag;
+  cancelDrag();
+  if (valid && point === points[selected]) {
+    let first = selected, last = selected;
+    while (first > 1 && handStep(first)) first--;
+    while (handStep(last + 1)) last++;
+    for (let i = first; i <= last; i++) points[i].arm = angles.slice();
+    refresh();
+  } else $("drag-tip").textContent = "手腕够不到这里，已恢复原位。";
+}
+$("route-pins").addEventListener("pointermove", moveDrag);
+$("route-pins").addEventListener("pointerup", finishDrag);
+for (const event of ["pointercancel", "lostpointercapture"]) {
+  $("route-pins").addEventListener(event, e => { if (drag?.pointer === e.pointerId) cancelDrag(); });
+}
+window.addEventListener("blur", cancelDrag);
+window.addEventListener("keydown", e => { if (e.key === "Escape") cancelDrag(); });
+for (const id of ["drag-plane", "drag-height"]) {
+  $(id).onclick = () => {
+    cancelDrag();
+    heightOnly = id === "drag-height";
+    $("drag-plane").setAttribute("aria-pressed", String(!heightOnly));
+    $("drag-height").setAttribute("aria-pressed", String(heightOnly));
+    syncTeach();
+  };
+}
+$("add-waypoint").onclick = () => insertAfter(handStep(selected + 1) ? selected + 1 : selected);
+$("new-route").onclick = () => {
+  if (!window.confirm("用一条从起始姿势出发的新路线替换当前动作？")) return;
+  cancelDrag();
+  points.splice(1);
+  selected = 0;
+  updateTrajectory();
+  insertAfter(0);
+};
+function markHand(mode) {
+  if (!selected || !teaching) return;
+  if (!handStep(selected)) {
+    if (handStep(selected + 1)) selected++;
+    else {
+      if (!canInsert()) return;
+      const arm = points[selected].arm.slice(), hand = trajectory[selected].slice(7);
+      selected++;
+      points.splice(selected, 0, { arm, hand,
+        ticks: hz, mode, label: "原地手指动作" });
+    }
+  }
+  points[selected].mode = mode;
+  refresh();
+  $("drag-tip").textContent = mode === "grasp" ? "手腕到位后在这里合拢手指。" : "手腕到位后在这里张开手指。";
+}
+$("mark-grasp").onclick = () => markHand("grasp");
+$("mark-release").onclick = () => markHand("release");
 
 function buildSliders() {
   jointInputs = archive.model.limits.map(([low, high], i) => {
@@ -101,6 +290,7 @@ function buildSliders() {
       updatePositionInputs();
       number.textContent = toDegrees(value).toFixed(1) + "°";
       seekSelected();
+      syncTeach();
     });
     return { slider, number, label };
   });
@@ -122,6 +312,7 @@ function updateTrajectory() {
       trace.push(wrist(archive.model, pose));
     }
   }
+  waypointPositions = trajectory.map(pose => wrist(archive.model, pose));
   $("scrub").max = totalTicks / hz;
   workcell?.route(trajectory, points.map(p => p.ticks));
 }
@@ -132,6 +323,7 @@ function updatePositionInputs() {
 }
 
 function refresh() {
+  cancelDrag();
   updateTrajectory();
   const list = $("sequence");
   const scroll = list.scrollTop;
@@ -188,6 +380,7 @@ function refresh() {
     slider.disabled = selected === 0;
   });
   seekSelected();
+  syncTeach();
 }
 
 function stopPlayback() {
@@ -341,14 +534,17 @@ $("hand-mode").addEventListener("change", event => {
   refresh();
 });
 
-$("insert").addEventListener("click", () => {
+function insertAfter(index) {
+  if (!canInsert()) return;
+  selected = index;
   stopPlayback();
   const arm = points[selected].arm.slice();
   const hand = trajectory[selected].slice(7);
   points.splice(++selected, 0, { arm, hand, mode: "hold", ticks: hz, label: "新增动作点" });
   showNotice();
   refresh();
-});
+}
+$("insert").onclick = () => insertAfter(selected);
 
 for (const [button, delta] of [["earlier", -1], ["later", 1]]) {
   $(button).addEventListener("click", () => {
@@ -368,12 +564,14 @@ $("remove").addEventListener("click", () => {
 });
 
 $("scrub").addEventListener("input", event => {
+  if (teaching) setTeaching(false);
   stopPlayback();
   clock = Number(event.target.value);
   updatePreview();
 });
 
 $("play").addEventListener("click", () => {
+  if (teaching) { setTeaching(false); clock = 0; }
   if (animation) {
     stopPlayback();
     return;
@@ -395,6 +593,7 @@ $("play").addEventListener("click", () => {
 
 for (const button of document.querySelectorAll("[data-view]")) {
   button.addEventListener("click", () => {
+    if (teaching) setTeaching(false);
     view = button.dataset.view;
     $("stage").hidden = view !== "3d";
     canvas.hidden = view === "3d";

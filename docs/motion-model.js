@@ -82,6 +82,7 @@ function normalized(v) {
 function transformNode(node) {
   const joint = node.querySelector(":scope > joint");
   return {
+    name: node.getAttribute("name"),
     position: vector(node, "pos", [0, 0, 0]),
     rotation: normalized(vector(node, "quat", [1, 0, 0, 0])),
     axis: joint ? normalized(vector(joint, "axis", [0, 0, 1])) : null
@@ -168,7 +169,7 @@ function rotate([w, ...v], point) {
   return add(add(point, scaled(t, w)), cross(v, t));
 }
 
-export function armPoints(model, angles) {
+export function armPoints(model, angles, frames) {
   let p = [0, 0, 0];
   let q = [1, 0, 0, 0];
   let index = 0;
@@ -181,6 +182,7 @@ export function armPoints(model, angles) {
       q = multiply(q, [Math.cos(half), ...scaled(part.axis, Math.sin(half))]);
     }
     points.push(p);
+    if (frames) frames.push({ name: part.name, p, q });
   }
   return points.slice(1);
 }
