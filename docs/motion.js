@@ -1,6 +1,6 @@
 import { armPoints, exportProject, hz, interpolate, maxPoints, moveWrist, openProject, wrist } from "./motion-model.js";
 
-const starterUrl = "https://raw.githubusercontent.com/xanthiawang/pharmacy-robotics-workshop/57692cdaca232402f7645c9124c9ae591c893d98/01_%E7%BD%91%E9%A1%B5%E6%93%8D%E4%BD%9C/02_%E6%8A%93%E8%8D%AF%E7%9B%92%E5%85%A5%E7%AE%B1.botlab.zip";
+const starterUrl = "./downloads/pharmacy-pick-place.botlab.zip";
 const exampleLabels = ["起始姿势", "靠近药盒", "合拢抓取", "抬起药盒", "稳住药盒",
   "移动到周转箱", "降低手腕", "张开松手", "抬起手腕", "等待药盒落稳"];
 const names = ["关节 1", "关节 2", "关节 3", "关节 4", "关节 5", "关节 6", "关节 7",
@@ -15,7 +15,8 @@ const toRadians = degrees => degrees * Math.PI / 180;
 const closeEnough = (a, b) => a.every((value, i) => Math.abs(value - b[i]) < 1e-9);
 let baseline, archive, points, selected, presets, trajectory, totalTicks, trace;
 let clock = 0;
-let view = "xy";
+let view = "3d";
+let workcell, projectVersion = 0;
 let animation = 0;
 let projection;
 let jointInputs = [];
@@ -30,6 +31,7 @@ function showNotice(message = "", error = false) {
 function useProject(project, filename) {
   stopPlayback();
   archive = project;
+  setupWorkcell(project, ++projectVersion);
   presets = { release: baseline.targets[0].slice(7), grasp: baseline.targets[2].slice(7) };
   const example = project.targets.length === baseline.targets.length &&
     project.targets.every((pose, i) => closeEnough(pose, baseline.targets[i]));
@@ -57,6 +59,25 @@ function useProject(project, filename) {
   buildSliders();
   refresh();
 }
+
+async function setupWorkcell(project, version) {
+  try {
+    const { createWorkcell } = await import("./workcell.js");
+    if (version !== projectVersion) return;
+    workcell ??= createWorkcell($("workcell"), $("simulation-status"));
+    workcell.project(project.files);
+    workcell.route(trajectory, points.map(p => p.ticks));
+    workcell.seek(clock);
+  } catch (error) {
+    console.error(error);
+    document.querySelector('[data-view="xy"]').click();
+    showNotice("三维视图加载失败，已打开俯视编辑。", true);
+    $("simulation-status").textContent = "三维视图暂时不可用，可切换到俯视或侧视编辑。";
+  }
+}
+
+$("overview").onclick = () => workcell?.viewpoint(false);
+$("hand-camera").onclick = () => workcell?.viewpoint(true);
 
 function buildSliders() {
   jointInputs = archive.model.limits.map(([low, high], i) => {
@@ -102,6 +123,7 @@ function updateTrajectory() {
     }
   }
   $("scrub").max = totalTicks / hz;
+  workcell?.route(trajectory, points.map(p => p.ticks));
 }
 
 function updatePositionInputs() {
@@ -230,6 +252,7 @@ function dot(point, color, radius) {
 function updatePreview() {
   $("scrub").value = clock;
   $("clock").textContent = clock.toFixed(1) + " / " + (totalTicks / hz).toFixed(1) + " 秒";
+  if (view === "3d") { workcell?.seek(clock); return; }
   projection = makeProjection();
   context.clearRect(0, 0, canvas.width, canvas.height);
   const [left, top] = projection.world(0, 0);
@@ -355,11 +378,14 @@ $("play").addEventListener("click", () => {
     stopPlayback();
     return;
   }
-  clock = 0;
-  const start = performance.now();
+  if (clock >= totalTicks / hz || (selected === 0 && clock === points[0].ticks / hz)) clock = 0;
+  let previous = performance.now();
   $("play").textContent = "暂停";
   function frame(now) {
-    clock = Math.min(totalTicks / hz, (now - start) / 1000);
+    const next = Math.min(totalTicks / hz, clock + (now - previous) / 1000);
+    previous = now;
+    if (view === "3d" && workcell?.failed()) { stopPlayback(); return; }
+    if (view !== "3d" || workcell?.canPlay(next)) clock = next;
     updatePreview();
     if (clock < totalTicks / hz) animation = requestAnimationFrame(frame);
     else stopPlayback();
@@ -370,6 +396,10 @@ $("play").addEventListener("click", () => {
 for (const button of document.querySelectorAll("[data-view]")) {
   button.addEventListener("click", () => {
     view = button.dataset.view;
+    $("stage").hidden = view !== "3d";
+    canvas.hidden = view === "3d";
+    $("view-help").textContent = view === "3d" ? "拖动旋转视角，滚轮或双指缩放。点「手部特写」跟着手指看抓取和松开。" : "先选右侧的动作点，再点图设置手腕位置。";
+    if (view === "3d") workcell?.size();
     for (const choice of document.querySelectorAll("[data-view]")) {
       choice.setAttribute("aria-pressed", String(choice === button));
     }

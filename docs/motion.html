@@ -31,19 +31,25 @@
     <div class="workspace" hidden id="workspace">
       <section class="card preview" aria-labelledby="preview-heading">
         <div class="section-bar">
-          <h2 id="preview-heading">手腕路径</h2>
+          <h2 id="preview-heading">机械臂工作台</h2>
           <div class="toolbar" aria-label="视角">
-            <button type="button" data-view="xy" aria-pressed="true">俯视</button>
-            <button type="button" data-view="xz" aria-pressed="false">侧视</button>
+            <button type="button" data-view="3d" aria-pressed="true">三维</button>
+            <button type="button" data-view="xy" aria-pressed="false">俯视编辑</button>
+            <button type="button" data-view="xz" aria-pressed="false">侧视编辑</button>
           </div>
         </div>
-        <canvas id="path" width="680" height="440" aria-label="手腕路径与机械臂姿势示意"></canvas>
+        <div id="stage">
+          <canvas id="workcell" aria-label="可旋转的三维机械臂、灵巧手、药盒和周转箱"></canvas>
+          <div class="camera-tools"><button type="button" id="overview">全景</button><button type="button" id="hand-camera">手部特写</button></div>
+          <span id="simulation-status" role="status"></span>
+        </div>
+        <canvas hidden id="path" width="680" height="440" aria-label="手腕路径与机械臂姿势示意"></canvas>
         <div class="playback">
           <button type="button" id="play">播放预览</button>
           <input type="range" id="scrub" aria-label="预览进度" min="0" value="0" max="25" step=".02">
           <output id="clock">0.0 / 25.0 秒</output>
         </div>
-        <p class="help">点图可移动当前动作点。预览显示手腕位置和关节运动，抓取和碰撞效果在 BotLab 中看。</p>
+        <p class="help" id="view-help">拖动旋转视角，滚轮或双指缩放。点「手部特写」跟着手指看抓取和松开。</p>
       </section>
       <section class="card timeline" aria-labelledby="sequence-heading">
         <div class="section-bar">

@@ -73,3 +73,11 @@ footer { padding: 16px 0 24px; }
   .fields.xyz button { grid-column: 1 / -1; }
   #joint-controls { grid-template-columns: minmax(0, 1fr); }
 }
+#stage { position: relative; background: #e8eeec; border-radius: 8px; overflow: hidden; margin: 10px 0; }
+#workcell { width: 100%; aspect-ratio: 1.48; display: block; touch-action: none; cursor: grab; }
+#workcell:active { cursor: grabbing; }
+.camera-tools { position: absolute; top: 10px; left: 10px; display: flex; gap: 4px; }
+.camera-tools button { min-height: 31px; padding: 3px 9px; font-size: 13px; background: #fffffff2; }
+#simulation-status:not(:empty) { position: absolute; bottom: 8px; left: 8px; background: #fffffff2; border-radius: 5px; padding: 3px 8px; font-size: 13px; }
+@media(max-width: 760px) { .timeline { grid-row: auto; } }
+@media(max-width: 480px) { .preview .section-bar { flex-wrap: wrap; gap: 5px; } }
