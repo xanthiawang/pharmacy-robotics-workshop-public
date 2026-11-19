@@ -5,3 +5,5 @@
 公开建模包含两份可直接打开的 Blender 工程。可以在现有药房里修改家具和药品模型，也可以打开空房间重新布置。
 
 [下载完整工作坊资产包](https://github.com/xanthiawang/pharmacy-robotics-workshop/archive/57692cdaca232402f7645c9124c9ae591c893d98.zip)。包含机器人仿真、URDF Studio 场景、布局转换器及 Blender 源工程。网页也提供 Studio 和 BotLab 的单文件下载。
+
+[抓取动作编辑器](https://xanthiawang.github.io/pharmacy-robotics-workshop-public/motion.html)可以调整手腕位置、手指动作和用时，导出 BotLab 工程。使用自己的房间布局时，先在资产包里转换布局，再将生成的工程导入编辑器。

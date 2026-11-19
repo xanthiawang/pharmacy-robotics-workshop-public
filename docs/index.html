@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="下载可编辑的药房和空房间 Blender 工程，查看药房机器人工作坊操作流程。">
+<meta name="description" content="下载药房工作坊资产、调整药房布局，并在网页上编排机械臂和灵巧手的抓取动作。">
 <title>药房机器人工作坊</title>
 <style>
 :root{color-scheme:light;--ink:#132d38;--accent:#07695f;--muted:#41616b;--line:#d5e4e2;--wash:#eff7f5}
@@ -30,7 +30,7 @@ footer{padding:20px 0 30px;margin-top:34px;border-top:1px solid var(--line);colo
 </style>
 </head>
 <body>
-<nav aria-label="项目链接"><a href="./">药房机器人工作坊</a><a href="https://github.com/xanthiawang/pharmacy-robotics-workshop-public">GitHub 项目</a></nav>
+<nav aria-label="项目链接"><a href="./">药房机器人工作坊</a><a href="./motion.html">抓取动作编辑器</a></nav>
 <main>
   <header>
     <h1>药房机器人工作坊</h1>
@@ -38,6 +38,11 @@ footer{padding:20px 0 30px;margin-top:34px;border-top:1px solid var(--line);colo
   <section aria-labelledby="workflow">
     <h2 id="workflow">完整版操作流程图</h2>
     <figure><a href="./workflow.png"><img src="./workflow.png" width="2400" height="2303" alt="工作坊操作图：URDF Studio 调整布局，包内网页转换工程，BotLab 运行，Blender 独立建模。"></a></figure>
+  </section>
+  <section class="model" aria-labelledby="motion-editor">
+    <h2 id="motion-editor">自己编排抓取动作</h2>
+    <p>在网页上添加动作点、移动手腕，设置手指何时合拢和松开。完成后下载工程，到 BotLab 试跑。</p>
+    <div class="actions"><a class="button" href="./motion.html">打开抓取动作编辑器</a></div>
   </section>
   <section aria-label="资产下载">
     <h2>下载并导入</h2>
@@ -64,11 +69,11 @@ footer{padding:20px 0 30px;margin-top:34px;border-top:1px solid var(--line);colo
     <h2 id="browser-flow">用自己改过的布局跑仿真</h2>
     <ol class="steps">
       <li><h3>1. 调整家具</h3><p>在 <a href="https://urdf.enkeebot.com/">URDF Studio</a> 打开包内 .botscene，摆放柜子、椅子和中央桌，再保存布局。</p></li>
-      <li><h3>2. 转换布局</h3><p>打开资产包里的「布局转BotLab.html」，选择保存的布局，下载 BotLab 工程。</p></li>
+      <li><h3>2. 转换布局</h3><p>打开资产包里的「布局转BotLab.html」，选择保存的布局，下载 BotLab 工程。要修改动作，把新工程导入<a href="./motion.html">抓取动作编辑器</a>。</p></li>
       <li><h3>3. 运行抓取</h3><p>在 <a href="https://botlab.enkeebot.com/">BotLab</a> 中导入 .botlab.zip，点击 Run。</p></li>
     </ol>
   </section>
 </main>
-<footer>药房机器人工作坊 · 2026-11-18</footer>
+<footer>药房机器人工作坊 · <a href="https://github.com/xanthiawang/pharmacy-robotics-workshop-public">GitHub 项目</a></footer>
 </body>
 </html>

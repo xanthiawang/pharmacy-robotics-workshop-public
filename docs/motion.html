@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>抓取动作编辑器 · 药房机器人工作坊</title>
+  <link rel="stylesheet" href="./motion.css">
+  <script defer src="./vendor/fflate-0.8.2.js"></script>
+  <script type="module" src="./motion.js"></script>
+</head>
+<body>
+  <main>
+    <nav><a href="./">← 返回药房工作坊</a><a href="https://botlab.enkeebot.com/" target="_blank" rel="noopener">打开 BotLab ↗</a></nav>
+    <header>
+      <h1>抓取动作编辑器</h1>
+      <p>从抓药盒示例开始。选一个动作点，调整机械臂的位置、手指动作和用时，再下载工程到 BotLab 试跑。</p>
+    </header>
+    <section class="project" aria-label="场景和下载">
+      <div>
+        <strong id="project-name">药房示例</strong>
+        <div id="load-status" role="status">正在加载示例工程…</div>
+      </div>
+      <div class="toolbar">
+        <label class="file-button">打开已有工程<input type="file" id="project-file" accept=".zip,.botlab.zip"></label>
+        <button type="button" id="use-demo" hidden>恢复示例</button>
+        <button type="button" class="primary" id="download" disabled>下载 BotLab 工程</button>
+      </div>
+    </section>
+    <noscript><p>请启用 JavaScript 后重新打开编辑器。</p></noscript>
+    <aside class="notice" hidden id="notice" role="status"></aside>
+    <div class="workspace" hidden id="workspace">
+      <section class="card preview" aria-labelledby="preview-heading">
+        <div class="section-bar">
+          <h2 id="preview-heading">手腕路径</h2>
+          <div class="toolbar" aria-label="视角">
+            <button type="button" data-view="xy" aria-pressed="true">俯视</button>
+            <button type="button" data-view="xz" aria-pressed="false">侧视</button>
+          </div>
+        </div>
+        <canvas id="path" width="680" height="440" aria-label="手腕路径与机械臂姿势示意"></canvas>
+        <div class="playback">
+          <button type="button" id="play">播放预览</button>
+          <input type="range" id="scrub" aria-label="预览进度" min="0" value="0" max="25" step=".02">
+          <output id="clock">0.0 / 25.0 秒</output>
+        </div>
+        <p class="help">点图可移动当前动作点。预览显示手腕位置和关节运动，抓取和碰撞效果在 BotLab 中看。</p>
+      </section>
+      <section class="card timeline" aria-labelledby="sequence-heading">
+        <div class="section-bar">
+          <h2 id="sequence-heading">动作顺序</h2>
+          <button type="button" class="accent" id="insert">＋ 插入动作点</button>
+        </div>
+        <ol id="sequence"></ol>
+        <div class="toolbar order">
+          <button id="earlier" type="button">上移</button>
+          <button id="later" type="button">下移</button>
+          <button id="remove" type="button">删除</button>
+        </div>
+      </section>
+      <section class="card settings" aria-labelledby="settings-heading">
+        <div class="section-bar"><h2 id="settings-heading">动作点设置</h2><span id="selected-label"></span></div>
+        <div class="fields">
+          <label>这一步用时（秒）<input type="number" id="duration" min=".1" max="30" step=".02" value="1" required></label>
+          <label>手指动作
+            <select id="hand-mode">
+              <option value="hold">保持上一姿势</option>
+              <option value="grasp">合拢抓取</option>
+              <option value="release">张开松手</option>
+              <option value="custom">单独调整手指</option>
+            </select>
+          </label>
+        </div>
+        <form id="position-form">
+          <div class="fields xyz">
+            <label>手腕 X（米）<input type="number" id="x" step="any" required></label>
+            <label>手腕 Y（米）<input type="number" id="y" step="any" required></label>
+            <label>手腕 Z（米）<input type="number" id="z" step="any" required></label>
+            <button type="submit" id="apply-position">移动手腕</button>
+          </div>
+        </form>
+        <p id="position-help" class="help">要先到位再抓，可以插入一个位置相同的动作点，把手指动作设为「合拢抓取」。</p>
+        <details id="joints"><summary>微调关节角度</summary><div id="joint-controls"></div></details>
+      </section>
+    </div>
+    <footer>下载后在 BotLab 选择 <strong>File → Open project file / ZIP</strong>，打开工程并点 <strong>Run</strong>。</footer>
+  </main>
+</body>
+</html>
