@@ -102,35 +102,52 @@ export function buildModel(xml) {
     "工程需要使用工作坊的 Marvin M6S 和 Handle-L1。");
   const landmarks = [
     ["药盒", "test_medicine_box", "#cb7027"],
-    ["周转箱", "destination_bin", "#2d689a"]
-  ].map(([label, name, color]) => ({
-    label, color, position: vector(xml.querySelector('body[name="' + name + '"]'), "pos", [0, 0, 0])
-  }));
-  return { arm, limits, landmarks };
+    ["周转箱", "destination_bin", "#2d689a"],
+    ...(xml.documentElement.getAttribute("model") === "dispatch" ? [["待取架中层", "dispatch_rack__shelf2", "#2d689a"]] : [])
+  ].flatMap(([label, name, color]) => {
+    let node = xml.querySelector('body[name="' + name + '"]');
+    if (!node) return [];
+    let position = [0, 0, 0];
+    while (node?.localName === "body") {
+      position = add(vector(node, "pos", [0, 0, 0]), rotate(vector(node, "quat", [1, 0, 0, 0]), position));
+      node = node.parentElement;
+    }
+    return [{ label, color, position }];
+  });
+  const actuators = [...xml.querySelectorAll("actuator > [joint]")].map(a => a.getAttribute("joint"));
+  const coupling = new Map([...xml.querySelectorAll("equality > joint")].map(e =>
+    [e.getAttribute("joint1"), { driver: actuators.indexOf(e.getAttribute("joint2")), coefficients: vector(e, "polycoef", []) }]));
+  const fingers = [...xml.querySelectorAll('body[name="hand/palm"] body')].map(body => {
+    const joint = body.querySelector(":scope > joint")?.getAttribute("name");
+    return { ...transformNode(body), parent: body.parentElement.getAttribute("name"),
+      driver: actuators.indexOf(joint), coupling: coupling.get(joint) };
+  });
+  return { arm, fingers, limits, landmarks };
 }
 
 export function openProject(bytes, baseline) {
   const archive = parseArchive(bytes);
-  if (baseline) {
-    const entries = Object.keys(archive.files);
-    const identicalAssets = entries.length === Object.keys(baseline.files).length &&
-      entries.every(name => {
-        const before = baseline.files[name];
-        if (!before) return false;
-        if (name === controllerPath || name === xmlPath) return true;
-        const after = archive.files[name];
-        return after.length === before.length && after.every((value, index) => value === before[index]);
-      });
-    check(identicalAssets && archive.skeleton === baseline.skeleton &&
-      compatibleLayout(archive.xml, baseline.xml),
-      "请选择本工作坊的抓取工程、动作编辑器导出的工程，或「布局转BotLab」生成的工程。");
-  }
   archive.model = buildModel(archive.xml);
   validateRoute(archive.targets, archive.steps, archive.model.limits);
-  if (baseline) {
-    check(archive.targets[0].every((angle, joint) => angle === baseline.targets[0][joint]),
-      "请保留工作坊的起始姿势。");
-  }
+  if (baseline) validateProject(archive, baseline);
+  return archive;
+}
+
+export function validateProject(archive, baseline) {
+  const entries = Object.keys(archive.files);
+  const identicalAssets = entries.length === Object.keys(baseline.files).length &&
+    entries.every(name => {
+      const before = baseline.files[name];
+      if (!before) return false;
+      if (name === controllerPath || name === xmlPath) return true;
+      const after = archive.files[name];
+      return after.length === before.length && after.every((value, index) => value === before[index]);
+    });
+  check(identicalAssets && archive.skeleton === baseline.skeleton &&
+    compatibleLayout(archive.xml, baseline.xml),
+    "请选择本工作坊的抓取工程、动作编辑器导出的工程，或「布局转BotLab」生成的工程。");
+  check(archive.targets[0].every((angle, joint) => angle === baseline.targets[0][joint]),
+    "请保留工作坊的起始姿势。");
   return archive;
 }
 
@@ -185,6 +202,27 @@ export function armPoints(model, angles, frames) {
     if (frames) frames.push({ name: part.name, p, q });
   }
   return points.slice(1);
+}
+
+export function poseFrames(model, angles) {
+  const frames = [];
+  armPoints(model, angles, frames);
+  const byName = new Map(frames.map(f => [f.name, f]));
+  for (const part of model.fingers) {
+    const parent = byName.get(part.parent);
+    let angle = angles[part.driver] ?? 0;
+    if (part.coupling) {
+      const { driver, coefficients } = part.coupling;
+      angle = coefficients.reduceRight((v, c) => v * angles[driver] + c, 0);
+    }
+    const p = add(parent.p, rotate(parent.q, part.position));
+    let q = multiply(parent.q, part.rotation);
+    if (part.axis) q = multiply(q, [Math.cos(angle / 2), ...scaled(part.axis, Math.sin(angle / 2))]);
+    const frame = { name: part.name, p, q };
+    byName.set(frame.name, frame);
+    frames.push(frame);
+  }
+  return frames;
 }
 
 export function wrist(model, angles) {

@@ -1,8 +1,17 @@
-import { armPoints, exportProject, hz, interpolate, maxPoints, moveWrist, openProject, wrist } from "./motion-model.js";
+import { armPoints, exportProject, hz, interpolate, maxPoints, moveWrist, openProject, poseFrames, validateProject, wrist } from "./motion-model.js";
 
 const starterUrl = "./downloads/pharmacy-pick-place.botlab.zip";
 const exampleLabels = ["起始姿势", "靠近药盒", "合拢抓取", "抬起药盒", "稳住药盒",
   "移动到周转箱", "降低手腕", "张开松手", "抬起手腕", "等待药盒落稳"];
+const stations = {
+  dispensing: { file: starterUrl, task: "从中央桌夹起药盒，越过箱沿后松手。", labels: exampleLabels },
+  returns: { file: "./downloads/pharmacy-returns.botlab.zip", task: "提起退回的药盒，停稳供观察，再放回桌面。右侧台面已为练习腾空。",
+    labels: ["起始姿势","靠近药盒","合拢抓取","提起药盒","停稳供观察","放回桌面","张开松手","撤回手腕"] },
+  dispatch: { file: "./downloads/pharmacy-dispatch.botlab.zip", task: "从备货桌抓起药盒，放到待取架中层。练习架移去上方一层隔板，留出手腕空间。",
+    labels: ["起始姿势","靠近备货桌","合拢抓取","提起药盒","稳住药盒","移入待取架","降低到层板","张开松手","退出货架","等待药盒落稳"] }
+};
+const templates = new Map();
+let station = "dispensing", loadId = 0, timedPoint = null;
 const names = ["关节 1", "关节 2", "关节 3", "关节 4", "关节 5", "关节 6", "关节 7",
   "拇指转动", "拇指弯曲", "食指", "中指", "无名指", "小指"];
 const modeLabels = { hold: "保持手势", grasp: "合拢抓取", release: "张开松手", custom: "自定义手势" };
@@ -36,6 +45,14 @@ function useProject(project, filename) {
   if (teaching) setTeaching(false);
   $("teach").disabled = true;
   archive = project;
+  timedPoint = null;
+  $("station").value = station;
+  $("station").disabled = false;
+  const url = new URL(location.href);
+  if (station === "dispensing") url.searchParams.delete("station");
+  else url.searchParams.set("station", station);
+  history.replaceState(null, "", url);
+  $("station-task").textContent = stations[station].task;
   setupWorkcell(project, ++projectVersion);
   presets = { release: baseline.targets[0].slice(7), grasp: baseline.targets[2].slice(7) };
   const example = project.targets.length === baseline.targets.length &&
@@ -48,7 +65,7 @@ function useProject(project, filename) {
     else if (closeEnough(hand, presets.grasp)) mode = "grasp";
     else if (closeEnough(hand, presets.release)) mode = "release";
     return {
-      label: i === 0 ? "起始姿势" : example ? exampleLabels[i] : "动作点",
+      label: i === 0 ? "起始姿势" : example ? stations[station].labels[i] : "动作点",
       arm: pose.slice(0, 7), hand, mode, ticks: project.steps[i]
     };
   });
@@ -70,7 +87,7 @@ async function setupWorkcell(project, version) {
     const { createWorkcell } = await import("./workcell.js");
     if (version !== projectVersion) return;
     workcell ??= createWorkcell($("workcell"), $("simulation-status"), projectPins, () => { $("teach").disabled = false; });
-    workcell.project(project.files);
+    workcell.project(project.files, station);
     workcell.route(trajectory, points.map(p => p.ticks));
     workcell.seek(clock);
   } catch (error) {
@@ -97,9 +114,7 @@ function handStep(index) {
 }
 
 function editArm(angles) {
-  const frames = [];
-  armPoints(archive.model, angles, frames);
-  workcell.editPose(frames);
+  workcell.editPose(poseFrames(archive.model, [...angles, ...trajectory[selected].slice(7)]));
 }
 
 function setTeaching(enable) {
@@ -142,7 +157,7 @@ function syncTeach() {
   $("teach-step").textContent = "第 " + (selected + 1) + " 步";
   $("mark-grasp").disabled = $("mark-release").disabled = selected === 0;
   for (const mode of ["grasp", "release"]) {
-    $("mark-" + mode).setAttribute("aria-pressed", String(handStep(selected) && points[selected].mode === mode));
+    $("mark-" + mode).setAttribute("aria-pressed", String((handStep(selected) || points[selected] === timedPoint) && points[selected].mode === mode));
   }
   $("add-waypoint").disabled = points.length >= maxPoints;
   $("drag-tip").textContent = selected === 0 ? "起始姿势固定。点「＋ 途经点」开始安排下一步。" : dragHint();
@@ -218,8 +233,10 @@ function finishDrag(event) {
   cancelDrag();
   if (valid && point === points[selected]) {
     let first = selected, last = selected;
-    while (first > 1 && handStep(first)) first--;
-    while (handStep(last + 1)) last++;
+    if (points[selected] !== timedPoint) {
+      while (first > 1 && handStep(first)) first--;
+      while (handStep(last + 1)) last++;
+    }
     for (let i = first; i <= last; i++) points[i].arm = angles.slice();
     refresh();
   } else $("drag-tip").textContent = "手腕够不到这里，已恢复原位。";
@@ -249,8 +266,21 @@ $("new-route").onclick = () => {
   updateTrajectory();
   insertAfter(0);
 };
+function preserveNextHandTarget() {
+  const next = points[selected + 1];
+  if (points[selected] !== timedPoint || next?.mode !== "hold") return;
+  next.hand = trajectory[selected + 1].slice(7);
+  next.mode = "custom";
+}
+
 function markHand(mode) {
   if (!selected || !teaching) return;
+  if (points[selected] === timedPoint) {
+    preserveNextHandTarget();
+    points[selected].mode = mode;
+    refresh();
+    return;
+  }
   if (!handStep(selected)) {
     if (handStep(selected + 1)) selected++;
     else {
@@ -285,7 +315,7 @@ function buildSliders() {
       const point = points[selected];
       const value = Math.max(low, Math.min(high, toRadians(Number(slider.value))));
       if (i < 7) point.arm[i] = value;
-      else point.hand[i - 7] = value;
+      else { preserveNextHandTarget(); point.hand[i - 7] = value; }
       updateTrajectory();
       updatePositionInputs();
       number.textContent = toDegrees(value).toFixed(1) + "°";
@@ -313,7 +343,7 @@ function updateTrajectory() {
     }
   }
   waypointPositions = trajectory.map(pose => wrist(archive.model, pose));
-  $("scrub").max = totalTicks / hz;
+  $("edit-time").max = $("scrub").max = totalTicks / hz;
   workcell?.route(trajectory, points.map(p => p.ticks));
 }
 
@@ -337,7 +367,8 @@ function refresh() {
     const indexText = document.createElement("span");
     indexText.textContent = index + 1;
     const name = document.createElement("span");
-    name.textContent = point.mode === "hold" ? point.label : modeLabels[point.mode];
+    const moving = index > 0 && !closeEnough(point.arm, points[index - 1].arm);
+    name.textContent = point.mode === "hold" ? point.label : (moving ? "移臂 · " : "") + modeLabels[point.mode];
     const end = document.createElement("small");
     end.textContent = elapsed.toFixed(2).replace(/0$/, "") + " 秒";
     button.append(indexText, name, end);
@@ -359,12 +390,15 @@ function refresh() {
   if (active.top < bounds.top) list.scrollTop += active.top - bounds.top;
   const point = points[selected];
   $("selected-label").textContent = selected === 0 ? "起始姿势" : "第 " + (selected + 1) + " 个动作点";
+  $("selected-label").textContent += " · 第 " + Number(elapsedAt(selected).toFixed(2)) + " 秒";
+  $("keep-arm").disabled = $("edit-wrist").disabled = selected === 0;
   $("duration").value = point.ticks / hz;
   $("hand-mode").value = point.mode;
   $("hand-mode").disabled = selected === 0;
   $("apply-position").disabled = selected === 0;
   xyz.forEach(input => { input.disabled = selected === 0; });
-  $("position-help").textContent = selected === 0
+  $("position-help").textContent = point === timedPoint ? "在此时刻设置目标，系统会从上一动作点平滑过渡。后续动作点的时间保留。"
+    : selected === 0
     ? "从这个姿势出发。选择后面的动作点，或插入一个新动作点。"
     : "要先到位再抓，可在同一位置插入一个动作点，再选「合拢抓取」。移动手腕时，朝向可能跟着改变。";
   $("earlier").disabled = selected < 2;
@@ -389,6 +423,62 @@ function stopPlayback() {
   $("play").textContent = "播放预览";
 }
 
+function elapsedAt(index) {
+  return points.slice(0, index + 1).reduce((sum, p) => sum + p.ticks, 0) / hz;
+}
+
+function teachCurrent() {
+  if ($("teach").disabled) return;
+  if (view !== "3d") document.querySelector('[data-view="3d"]').click();
+  if (!teaching && !$("teach").disabled) setTeaching(true);
+}
+
+$("edit-wrist").onclick = teachCurrent;
+$("keep-arm").onclick = () => {
+  if (!selected) return;
+  stopPlayback();
+  points[selected].arm = points[selected - 1].arm.slice();
+  refresh();
+};
+
+$("time-form").onsubmit = event => {
+  event.preventDefault();
+  stopPlayback();
+  const tick = Math.round($("edit-time").valueAsNumber * hz);
+  if (!Number.isInteger(tick) || tick < 0 || tick > totalTicks) return;
+  let start = 0, i = 0;
+  while (i < points.length - 1 && start + points[i].ticks < tick) start += points[i++].ticks;
+  const left = tick - start, right = points[i].ticks - left;
+  if (right === 0 && i > 0) selected = i;
+  else {
+    const additions = i === 0 && right > 0 ? 2 : 1;
+    if (points.length + additions > maxPoints || left < (i === 0 ? 10 : 5) || (right > 0 && right < 5)) {
+      showNotice("起始姿势需要保留。请选已有动作点，或选一个与相邻点至少相隔 0.1 秒的时刻（首段从 0.2 秒起）。路线最多 40 步。", true);
+      return;
+    }
+    const pose = poseAt(tick / hz);
+    const point = { label: "协同姿势", arm: pose.slice(0, 7), hand: pose.slice(7),
+      mode: closeEnough(pose.slice(7), trajectory[Math.max(0, i-1)].slice(7)) ? "hold" : "custom", ticks: left };
+    if (i === 0) {
+      points[0].ticks = 5;
+      point.ticks -= 5;
+      points.splice(1, 0, point);
+      if (right) points.splice(2, 0, { ...points[0], arm: point.arm.slice(), hand: point.hand.slice(), ticks: right, label: "起始段末" });
+      selected = 1;
+    } else {
+      points[i].ticks = right;
+      points.splice(i, 0, point);
+      selected = i;
+    }
+  }
+  timedPoint = points[selected];
+  teachCurrent();
+  refresh();
+  const note = "正在编辑第 " + tick / hz + " 秒的目标姿势。拖手腕、调手指，然后回放检查。";
+  $("drag-tip").textContent = note;
+  showNotice(note);
+};
+
 function seekSelected() {
   clock = points.slice(0, selected + 1).reduce((sum, point) => sum + point.ticks, 0) / hz;
   updatePreview();
@@ -410,7 +500,7 @@ function makeProjection() {
     (value, i) => value + archive.model.arm[0].position[i]);
   const axis = view === "xy" ? 1 : 2;
   const scale = Math.min(canvas.width, canvas.height) / 1.55;
-  center[0] -= .29;
+  center[0] = (center[0] + archive.model.landmarks[0].position[0]) / 2;
   const middle = view === "xy" ? center[1] : center[2];
   return {
     axis,
@@ -444,6 +534,7 @@ function dot(point, color, radius) {
 
 function updatePreview() {
   $("scrub").value = clock;
+  if (document.activeElement !== $("edit-time")) $("edit-time").value = Number((Math.round(clock * hz) / hz).toFixed(2));
   $("clock").textContent = clock.toFixed(1) + " / " + (totalTicks / hz).toFixed(1) + " 秒";
   if (view === "3d") { workcell?.seek(clock); return; }
   projection = makeProjection();
@@ -519,7 +610,13 @@ $("duration").addEventListener("change", event => {
     element.value = points[selected].ticks / hz;
     return;
   }
-  points[selected].ticks = Math.round(element.valueAsNumber * hz);
+  const ticks = Math.round(element.valueAsNumber * hz);
+  if (totalTicks - points[selected].ticks + ticks > 180 * hz) {
+    showNotice("整条路线最多 180 秒。", true);
+    element.value = points[selected].ticks / hz;
+    return;
+  }
+  points[selected].ticks = ticks;
   stopPlayback();
   showNotice();
   refresh();
@@ -527,6 +624,7 @@ $("duration").addEventListener("change", event => {
 
 $("hand-mode").addEventListener("change", event => {
   const point = points[selected];
+  preserveNextHandTarget();
   point.hand = trajectory[selected].slice(7);
   point.mode = event.target.value;
   if (point.mode === "custom") $("joints").open = true;
@@ -606,24 +704,50 @@ for (const button of document.querySelectorAll("[data-view]")) {
   });
 }
 
-async function loadDemo() {
+async function templateFor(id) {
+  if (!templates.has(id)) {
+    const response = await fetch(stations[id].file);
+    if (!response.ok) throw new Error("工位工程下载失败，请重试。");
+    templates.set(id, openProject(new Uint8Array(await response.arrayBuffer())));
+  }
+  return templates.get(id);
+}
+
+async function loadDemo(id = station) {
+  const request = ++loadId;
+  $("station").disabled = true;
+  $("load-status").textContent = "正在加载工位…";
   try {
-    const response = await fetch(starterUrl);
-    if (!response.ok) throw new Error("示例下载失败。");
-    baseline = openProject(new Uint8Array(await response.arrayBuffer()));
-    useProject(baseline, "药房示例");
+    const template = await templateFor(id);
+    if (request !== loadId) return;
+    baseline = template;
+    station = id;
+    useProject(template, "工作坊示例");
   } catch {
-    $("load-status").textContent = "未能加载示例工程。";
-    $("use-demo").textContent = "重试";
+    if (request !== loadId) return;
+    $("station").value = station;
+    $("station").disabled = false;
+    $("load-status").textContent = "工位加载失败。";
     $("use-demo").hidden = false;
     $("use-demo").disabled = false;
-    showNotice("请检查网络后重试。", true);
+    showNotice("工位下载失败，请检查网络后重试。", true);
   }
 }
 
+$("station").onchange = () => {
+  const id = $("station").value;
+  const modified = archive && (JSON.stringify(trajectory) !== JSON.stringify(archive.targets) ||
+    points.some((p,i) => p.ticks !== archive.steps[i]));
+  if (modified && !window.confirm("切换工位会替换当前动作。已下载要保留的工程吗？")) {
+    $("station").value = station;
+    return;
+  }
+  loadDemo(id);
+};
+
 $("use-demo").addEventListener("click", () => {
   if (baseline) {
-    if (window.confirm("恢复示例会替换当前动作顺序，继续吗？")) useProject(baseline, "药房示例");
+    if (window.confirm("恢复示例会替换当前动作顺序，继续吗？")) useProject(baseline, "工作坊示例");
     return;
   }
   $("use-demo").disabled = true;
@@ -646,7 +770,16 @@ $("project-file").addEventListener("change", async event => {
     if (!/\.zip$/i.test(file.name) || file.size > 32 * 1024 * 1024) {
       throw new Error("请选择工作坊的 .botlab.zip 工程。");
     }
-    useProject(openProject(new Uint8Array(await file.arrayBuffer()), baseline), file.name);
+    const request = ++loadId;
+    const imported = openProject(new Uint8Array(await file.arrayBuffer()));
+    const tag = imported.xml.documentElement.getAttribute("model");
+    const id = ["dispatch", "returns"].includes(tag) ? tag : "dispensing";
+    const template = await templateFor(id);
+    validateProject(imported, template);
+    if (request !== loadId) return;
+    baseline = template;
+    station = id;
+    useProject(imported, file.name);
   } catch (error) {
     showNotice(error instanceof Error ? error.message : "无法打开这个工程。", true);
   } finally {
@@ -673,4 +806,5 @@ $("download").addEventListener("click", async event => {
   }
 });
 
-loadDemo();
+const requestedStation = new URL(location.href).searchParams.get("station");
+loadDemo(Object.hasOwn(stations, requestedStation) ? requestedStation : "dispensing");

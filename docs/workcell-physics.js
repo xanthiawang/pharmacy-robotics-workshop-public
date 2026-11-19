@@ -20,7 +20,7 @@ function reset() {
   mj.mj_forward(model, data);
 }
 
-async function build({ files, initialQpos }) {
+async function build({ files, initialQpos, station }) {
   mj = await loadMuJoCo();
   mj.FS.mkdir("/meshes");
   for (const [path, bytes] of Object.entries(files)) {
@@ -32,10 +32,12 @@ async function build({ files, initialQpos }) {
   reset();
   bodies = [];
   const meshes = {}, geoms = [];
+  const furniture = station === "dispatch" ? /^(dispatch_rack($|__shelf)|staging_table$)/
+    : station === "returns" ? /^(return_table$|return_bin_0_)/ : /^(central_table_\d+$|destination_bin$)/;
   for (let id = 0; id < model.nbody; id++) {
     const name = mj.mj_id2name(model, 1, id) || "";
     const robot = /^(arm|hand)\//.test(name);
-    if (!robot && !/^(central_table_\d+$|destination_bin$|robot_station$|test_medicine_box($|__flap$))/.test(name)) continue;
+    if (!robot && !furniture.test(name) && !/^(robot_station$|test_medicine_box($|__flap$))/.test(name)) continue;
     const body = bodies.length;
     bodies.push({ id, name });
     const start = model.body_geomadr[id], end = start + model.body_geomnum[id];

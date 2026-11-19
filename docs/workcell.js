@@ -52,11 +52,19 @@ export function createWorkcell(canvas, status, onRender, onReady) {
   new ResizeObserver(size).observe(canvas);
   function viewpoint(detail = false) {
     close = detail && !!palm;
-    const focus = close ? palm.position.clone() : groups.find(g => g.name === "robot_station")?.position.clone() || new T.Vector3(2.85, 3.25, 0);
-    if (!close) focus.add(new T.Vector3(-.31, .02, 1.035));
+    const station = groups.find(g => g.name === "robot_station");
+    const focus = close ? palm.position.clone() : station?.position.clone() || new T.Vector3(2.85, 3.25, 0);
+    const local = v => station ? v.applyQuaternion(station.quaternion) : v;
+    const returns = groups.some(g => g.name === "return_table");
+    const rack = groups.some(g => g.name === "dispatch_rack");
+    if (!close) focus.add(local(new T.Vector3(returns ? -.58 : -.31, .02, 1.035)));
     if (close) focus.z -= .045;
     orbit.target.copy(focus);
-    camera.position.copy(focus).add(close ? new T.Vector3(-.34, -.41, .18) : new T.Vector3(-.78, -1.3, .52));
+    const offset = close ? new T.Vector3(-.34, -.41, .18) : new T.Vector3(-.78, -1.3, .52);
+    if (!close && (returns || rack)) offset.multiplyScalar(returns ? 1.6 : 1.4);
+    camera.position.copy(focus).add(local(offset));
+    key.target.position.copy(focus);
+    key.position.copy(focus).add(local(new T.Vector3(-1.8, -1.4, 3.1)));
     if (palm) following.copy(palm.position);
     orbit.update();
     render();
@@ -127,6 +135,7 @@ export function createWorkcell(canvas, status, onRender, onReady) {
       if (body.name.startsWith("test_medicine_box")) {
         color.set(/lid|stripe|label|tab/.test(item.name) ? 0xe87632 : 0xffda94);
       }
+      if (item.name.includes("dispatch_rack__rackplate")) color.set(0x78909c);
       if (item.name.endsWith("__top")) color.set(0xc9ae87);
       const material = new T.MeshStandardMaterial({ color, roughness: .58, metalness: item.type === 7 ? .19 : .02,
         transparent: opacity < 1, opacity, depthWrite: opacity >= 1 });
@@ -144,7 +153,7 @@ export function createWorkcell(canvas, status, onRender, onReady) {
     size();
     onReady();
   }
-  function project(files) {
+  function project(files, station) {
     clearTimeout(routeTimer);
     worker?.terminate();
     failed = false;
@@ -167,7 +176,7 @@ export function createWorkcell(canvas, status, onRender, onReady) {
     };
     const config = new TextDecoder().decode(files["controller.py"]).match(/'initialQpos':\s*(\[[^\]]+\])/);
     if (!config) throw new Error("工程缺少初始关节位置。");
-    worker.postMessage({ kind: "init", files: Object.fromEntries(Object.entries(files).filter(([p]) => p.startsWith("assets/pharmacy/"))),
+    worker.postMessage({ kind: "init", station, files: Object.fromEntries(Object.entries(files).filter(([p]) => p.startsWith("assets/pharmacy/"))),
       initialQpos: JSON.parse(config[1]) });
   }
   function route(targets, steps) {
@@ -182,16 +191,6 @@ export function createWorkcell(canvas, status, onRender, onReady) {
   }
   function applyEditPose() {
     if (!editingFrames || !palm) return;
-    const target = editingFrames.at(-1);
-    const rotation = palm.quaternion.clone().set(target.q[1], target.q[2], target.q[3], target.q[0]);
-    const change = rotation.multiply(palm.quaternion.clone().invert());
-    const origin = new T.Vector3(...target.p);
-    for (const g of groups) {
-      if (g !== palm && g.name.startsWith("hand/")) {
-        g.position.sub(palm.position).applyQuaternion(change).add(origin);
-        g.quaternion.premultiply(change);
-      }
-    }
     for (const frame of editingFrames) {
       const g = groups.find(body => body.name === frame.name);
       if (g) align(g, frame.p, frame.q);

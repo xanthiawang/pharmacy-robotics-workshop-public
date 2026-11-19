@@ -17,7 +17,13 @@
     </header>
     <section class="project" aria-label="场景和下载">
       <div>
-        <strong id="project-name">药房示例</strong>
+        <label for="station"><strong>练习工位</strong></label>
+        <select id="station" disabled>
+          <option value="dispensing">中央配药桌 · 抓药盒入箱</option>
+          <option value="returns">回收台 · 提起检查再放回</option>
+          <option value="dispatch">待取架 · 从备货桌上架</option>
+        </select>
+        <div id="station-task"></div><small id="project-name">药房示例</small>
         <div id="load-status" role="status">正在加载示例工程…</div>
       </div>
       <div class="toolbar">
@@ -58,6 +64,10 @@
           <input type="range" id="scrub" aria-label="预览进度" min="0" value="0" max="25" step=".02">
           <output id="clock">0.0 / 25.0 秒</output>
         </div>
+        <form id="time-form" class="toolbar">
+          <label>第 <input type="number" id="edit-time" min="0" step=".02" value="0" required> 秒</label>
+          <button type="submit" class="accent">编辑此刻的手臂和手指</button>
+        </form>
         <p class="help" id="view-help">拖动旋转视角，滚轮或双指缩放。点「手部特写」跟着手指看抓取和松开。</p>
       </section>
       <section class="card timeline" aria-labelledby="sequence-heading">
@@ -73,7 +83,7 @@
         </div>
       </section>
       <section class="card settings" aria-labelledby="settings-heading">
-        <div class="section-bar"><h2 id="settings-heading">动作点设置</h2><span id="selected-label"></span></div>
+        <div class="section-bar"><h2 id="settings-heading">手臂与手指</h2><span id="selected-label"></span></div>
         <div class="fields">
           <label>这一步用时（秒）<input type="number" id="duration" min=".1" max="30" step=".02" value="1" required></label>
           <label>手指动作
@@ -85,6 +95,8 @@
             </select>
           </label>
         </div>
+        <div class="toolbar" id="arm-actions"><button id="edit-wrist">在三维画面拖手腕</button><button id="keep-arm">手臂保持上一步姿势</button></div>
+        <p class="help">手臂和手指会在选定的时刻到达各自的目标姿势。要只动手指，先选「手臂保持上一步姿势」。</p>
         <details><summary>输入精确坐标</summary><form id="position-form">
           <div class="fields xyz">
             <label>手腕 X（米）<input type="number" id="x" step="any" required></label>

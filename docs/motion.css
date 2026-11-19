@@ -93,3 +93,8 @@ footer { padding: 16px 0 24px; }
 #teach-tools .toolbar { gap: 6px; margin: 6px 0; }
 #teach-tools button { font-size: 14px; }
 #teach-tools [aria-pressed="true"] { color: var(--accent); border-color: var(--accent); font-weight: bold; }
+
+#time-form, #arm-actions { margin-top: 12px; }
+#edit-time { width: 6em; }
+#station-task { margin-top: 5px; }
+#station { max-width: 100%; }
